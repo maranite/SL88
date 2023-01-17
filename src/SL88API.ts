@@ -13,52 +13,62 @@ class SL88API {
 
     async loadProgram(programNo: number = 16383) {
         var r = await this.device.requestObjectAsync(SL.RecallProgram.hex(programNo), SL.ProgramDump.from);
-        println(`program received : ${r.programNo} - ${r.program.name}`);
-        println(r.program.data.join(","));
-        //r.program.device = this.device;       // make it "live" so that changes are recorded to ram
+        // println(`program received : ${r.programNo} - ${r.program.name}`);
+        // println(r.program.data.join(","));
+        // //r.program.device = this.device;       // make it "live" so that changes are recorded to ram
         return r.program;
     }
 
-    async getProgramNames() {
-        println('Getting program names');
-        var results: string[] = [];
-        var r = await this.device.requestObjectAsync("0010", SL.try_decode);
-        while (true) {
-            if (!r) {
-                println('unknown: ' + this.device.mostRecentlyReceived);
-                break;
-            }
-            if (SL.isProgramName(r)) {
-                println(`${r.programNo} - ` + r.toString());
-                results[r.programNo] = r.name;
-            }
-            else if (SL.isRecallProgram(r)) {
-                println(r.toString());
-            }
-            else if (SL.isSetMode2(r)) {
-                println(r.toString());
-            }
-            else if (SL.isProgramDump(r)) {
-                println('Got program data! :D');
-                println(`program ${r.programNo} : ${r.program}`)
-            }
-            else if (SL.isVelocityCurve(r)) {
-                println(r.toString());
-            }
-            else if (SL.isSetSessionMode(r)) {
-                println(r.toString());
-            }
-            else {
-                println(r.toString());
-            }
-            r = await this.device.awaitReply(SL.try_decode);
+
+    async getConfigDump() {
+        var result = {
+            activeProgramNo: -1,
+            activeProgram: {} as SL.Program,
+            names: [] as string[],
+            curves: [] as any[]
         }
-        return results;
+        try {
+            var r = await this.device.requestObjectAsync("0010", SL.try_decode);
+            while (true) {
+                if (!r) {
+                    println('unknown: ' + this.device.mostRecentlyReceived);
+                    break;
+                }
+                if (SL.isProgramName(r))
+                    result.names[r.programNo] = r.name;
+                else if (SL.isRecallProgram(r))
+                    result.activeProgramNo = r.programNo;
+                else if (SL.isProgramDump(r))
+                    result.activeProgram = r.program;
+                else if (SL.isVelocityCurve(r))
+                    result.curves[r.curveNo] = {
+                        name: r.name,
+                        type: r.type,
+                        velocities: r.velocities,
+                        xy_points: r.xy_points
+                    }
+                else if (SL.isEndOfProgramNameDump(r)) {
+                    break;
+                }
+                // else if (SL.isSetMode2(r)) {
+                //     // println(r.toString());
+                // }
+                // else if (SL.isSetSessionMode(r)) {
+                //     // println(r.toString());
+                // }
+                // else {
+                //     println(r.toString());
+                // }
+                r = await this.device.awaitReply(SL.try_decode);
+            }
+        } catch (e) {
+            println(`Error occred retrieving SL88 config dump: ${e}`);
+        }
+        return result;
     }
 
     /** Creates track selection programs at a given slot as well as a tracks group*/
     async createTrackPrograms(firstSlot: number = 0, groupSlot: number = 0) {
-        const device = slDevice;
         const prog = SL.Program.newDefault();
         const indices = [];
         for (var i = 0; i < 30; i++) {
@@ -84,8 +94,8 @@ class SL88API {
             prog.zones[3].enabled = 'On';
             prog.zones[3].midiChannel = 15;
             prog.zones[3].programChange = i;
-            prog.zones[3].LSB = 1;  // track mode
-            prog.zones[3].MSB = i;  // track number
+            prog.zones[3].LSB = 'Off';  // track mode
+            prog.zones[3].MSB = 'Off';  // track number
             prog.zones[3].stick1Y = "pitchbend";
 
             var programNo = firstSlot + i;
@@ -133,8 +143,8 @@ class SL88API {
     //       zone.lowKey = 21;
     //       zone.highKey = 108;
     //     }
-      
-      
+
+
     //     prog.zones[0].enabled = 'On';
     //     prog.zones[0].stick2X = 'pitchbend';
     //     prog.zones[0].stick2Y = 'modulation';
