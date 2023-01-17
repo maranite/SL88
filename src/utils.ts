@@ -198,7 +198,7 @@ abstract class SysexBase {
           reject("Timed out");
           println("Timed out");
         }
-      }, 500);
+      }, 600);
     })
   }
 

@@ -68,10 +68,10 @@ class SL88API {
     }
 
     /** Creates track selection programs at a given slot as well as a tracks group*/
-    async createTrackPrograms(firstSlot: number = 0, groupSlot: number = 0) {
+    async createTrackPrograms(trackPrograms :number = 30, firstSlot: number = 0, groupSlot: number = 0) {
         const prog = SL.Program.newDefault();
         const indices = [];
-        for (var i = 0; i < 30; i++) {
+        for (var i = 0; i < trackPrograms; i++) {
             prog.name = `Track ${1 + i}`;
 
             prog.zones[0].instrument = `Track ${1 + i}`;
@@ -99,7 +99,8 @@ class SL88API {
             prog.zones[3].stick1Y = "pitchbend";
 
             var programNo = firstSlot + i;
-            indices.push(programNo);
+            if(i < 30)
+                indices.push(programNo);
             // println(`Creating ${prog.name}`);
             await this.device.sendAsync(new SL.ProgramDump(programNo, prog).toHex());
         }

@@ -88,8 +88,8 @@ class Omnisphere {
             for (let line of rawXml) {
                 var entryMatch = line.match(/<ENTRY NAME="([^"]+)" PATH="([^"].+)">/);
                 if (entryMatch) {
-                    lastMatch.name = entryMatch[1];
-                    lastMatch.path = entryMatch[2];
+                    lastMatch.name = decodeURI(entryMatch[1]);
+                    lastMatch.path = decodeURI(entryMatch[2]);
                     continue;
                 }
                 if (entryMatch = line.match(/<ATTR NAME="Library" VALUE="([^"].+)" \/>/)) {
