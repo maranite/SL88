@@ -1,0 +1,6 @@
+{
+  "dependencies": {
+    "typed-bitwig-api": "^17.0.1",
+    "typescript": "^4.9.3"
+  }
+}
