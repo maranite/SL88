@@ -11,3 +11,11 @@ The goals of this project:
 Happily, the hacking done in the [SL-Monitor](https://github.com/maranite/SL-Monitor) resulted in sufficient discovery of how to program the SL88 via sysex. This means that this controller script is able to create SL88 programs on the fly which correctly map the X Y & modes for stick 1, as well as pre-create the programs required to allow track selection and omnisphere preset selection.
 
 A former goal of this project was to allow selection of Bitwig device presets using the SL88 knob, but alas the Bitwig API does not allow scripts to interrogate the available presets without launching a popup browser window - i.e. the process _has_ to be interractive, and the thought of that simply gives me the shits.
+
+# Health & Safety
+
+This _is not_ a production grade extension, and _does_ modify the programs on your SL88. <br><br>
+
+Please use the SL88 Editor to backup your rig before trying out this extension!!!<br><br>
+
+A more general downside of using this script is that it prevents you from using SL Editor while Bitwig is running. This is because it uses all of the midi ports presented by th SL88, which prevents the SL Editor from connecting to the SL88 until Bitwig is closed. If this behavior is unnacceptable for you, please use a generic midi controller extension instead.
