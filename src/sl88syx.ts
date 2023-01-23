@@ -153,14 +153,13 @@ namespace SL {
         pitchbend: 1,
         aftertouch: 2
     } as any;
-
-
+   
     const PedalAssign: { [x in ('Off' | 'aftertouch' | Exclude<keyof typeof midiCC, 'bankSelect'>)]: number } = {
         off: 0,
         aftertouch: 1
     } as any;
 
-    Object.entries(midiCC).forEach(([k, v]) => v > 0 && (StickAssign[k as keyof typeof StickAssign] = v + 2));
+    Object.entries(midiCC).forEach(([k, v]) => v > 0 && (StickAssign[k as keyof typeof StickAssign] = v + 1));
     Object.entries(midiCC).forEach(([k, v]) => v > 0 && (PedalAssign[k as keyof typeof PedalAssign] = v + 1));
 
     function choiceKey<T extends { [s: string]: number }>(instance: T, value: number): keyof T {
@@ -213,6 +212,7 @@ namespace SL {
         static template: number[] = [85, 73, 78, 73, 84, 32, 80, 82, 79, 71, 82, 65, 77, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 21, 21, 21, 21, 108, 108, 108, 108, 64, 0, 0, 0, 0, 0, 0, 0, 127, 127, 127, 127, 3, 3, 3, 3, 12, 12, 12, 12, 1, 1, 1, 1, 100, 100, 100, 100, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 3, 0, 0, 0, 72, 0, 0, 0, 75, 0, 0, 0, 0, 0, 0, 0, 65, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
         static propertyMap: { [offset: number]: string} = {};
         static propertyDecoder: { [offset: number]: (values: number[]) => string } = {};
+        static properties :{ [name: string]: { zones : number[], length : number }} = {};
 
         private getData(offset: number, length: number): number[] {
             return this.data.slice(offset, offset + length);
@@ -237,6 +237,8 @@ namespace SL {
                     Program.propertyMap[offset + (i * length)] = `zone ${1 + i}.${name}`;
                     Program.propertyDecoder[offset + (i * length)] = v => String(decode(v));
                 });
+
+                Program.properties[name] = {zones : [0, 1, 2, 3].map(i => offset + (i * length)), length : length};
 
                 Object.defineProperty(Zone.prototype, name, {
                     get: function (this: Zone) { return decode(this.program.getData(offset + (this.zone * length), length)) },
@@ -274,8 +276,10 @@ namespace SL {
             wordOrOff("LSB", 0x8c);
             word("lowKey", 0x90);
             word("highKey", 0x94);
-            word("lowVel", 0x9c);
-            word("highVel", 0xa0);
+            // word("lowVel", 0x9c);
+            // word("highVel", 0xa0);
+            word("highVel", 0x9c);
+            word("lowVel", 0xa0);
             word("octave", 0xa4, 3, -3, 3);
             word("transpose", 0xa8, 12, -12, 12);
             define("afterTouch", 0xac, 1, v => v[0] ? true : false, v => [v ? 1 : 0]);

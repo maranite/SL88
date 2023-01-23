@@ -172,7 +172,7 @@ abstract class SysexBase {
     return new Promise<void>((resolve, reject) => {
       this.send(hex);
       //println(hex);
-      host.scheduleTask(resolve, 100);
+      host.scheduleTask(resolve, 300);
     })
   }
 
@@ -198,7 +198,7 @@ abstract class SysexBase {
           reject("Timed out");
           println("Timed out");
         }
-      }, 600);
+      }, 400);
     })
   }
 
@@ -352,13 +352,13 @@ const midiCC = {
   /** Usually controls the way a sound is produced. Default = Sound Variation. */
   sound1: 70,
   /** Allows shaping the Voltage Controlled Filter (VCF). Default = Resonance also (Timbre or Harmonics) */
-  sound2: 71,
+  resonance: 71,
   /** Controls release time of the Voltage controlled Amplifier (VCA). Default = Release Time. */
   sound3: 72,
   /** Controls the “Attack’ of a sound. The attack is the amount of time it takes for the sound to reach maximum amplitude. */
   sound4: 73,
   /** Controls VCFs cutoff frequency of the filter. */
-  sound5: 74,
+  frequency: 74,
   /** Generic – Some manufacturers may use to further shave their sounds. */
   sound6: 75,
   /** Generic – Some manufacturers may use to further shave their sounds. */

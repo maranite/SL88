@@ -10,7 +10,7 @@ class SL88API {
         const hex = SL.ProgramDump.hex(programNo, program);
         this.device.send(hex);
     }
-
+  
     async loadProgram(programNo: number = 16383) {
         var r = await this.device.requestObjectAsync(SL.RecallProgram.hex(programNo), SL.ProgramDump.from);
         // println(`program received : ${r.programNo} - ${r.program.name}`);
@@ -19,8 +19,8 @@ class SL88API {
         return r.program;
     }
 
-
     async getConfigDump() {
+        println('Requesting config dump');
         var result = {
             activeProgramNo: -1,
             activeProgram: {} as SL.Program,
@@ -48,6 +48,7 @@ class SL88API {
                         xy_points: r.xy_points
                     }
                 else if (SL.isEndOfProgramNameDump(r)) {
+                    println('End of Dump');
                     break;
                 }
                 // else if (SL.isSetMode2(r)) {
@@ -62,7 +63,7 @@ class SL88API {
                 r = await this.device.awaitReply(SL.try_decode);
             }
         } catch (e) {
-            println(`Error occred retrieving SL88 config dump: ${e}`);
+            println(`Error occured retrieving SL88 config dump: ${e}`);
         }
         return result;
     }
