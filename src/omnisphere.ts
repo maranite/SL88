@@ -111,41 +111,13 @@ class Omnisphere {
         return result;
     }
 
-    getGroupedRatedPatches(maxPatches: number = 220): { [path: string]: RatedPatch[] } {
-        var patchCount = 0;
-
-        var result = {} as { [path: string]: RatedPatch[] };
-
-        function fill(rating: number, patches: any[]) {
-            if (patchCount >= maxPatches) return;
-            for (let v of patches) {
-                if (v.rating !== rating) continue;
-                var path = v.path.split('/')[0];
-                var arr = result[path] = (result[path] || []);
-                arr.push(v);
-                ++patchCount;
-                if (patchCount >= maxPatches) return;
-            }
-        }
-
-        var multis = this.getRatedPatches(4, true);
-        var patches = this.getRatedPatches(4);
-        patches.sort((a, b) => a.name.localeCompare(b.name));
-        fill(5, multis);
-        fill(5, patches);
-        fill(4, patches);
-        fill(3, patches);
-        return result;
-    }
-
     getTopRatedPatches(maxPatches: number = 220): RatedPatch[] {
-        var multis = this.getRatedPatches(3, true);
         var patches = this.getRatedPatches(3);
-        var all = [...patches, ...multis];
+        var all = [...patches];
         all.sort((a, b) => {
             const r = b.rating - a.rating;
-            const p = a.path.localeCompare(b.path);
-            return r ? r : p ? p : a.name.localeCompare(b.name);
+            // const p = a.path.localeCompare(b.path);
+            return r ? r : a.name.localeCompare(b.name);
         });
         return all.splice(0, maxPatches);
     }
