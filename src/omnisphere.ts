@@ -115,11 +115,12 @@ class Omnisphere {
         var patches = this.getRatedPatches(3);
         var all = [...patches];
         all.sort((a, b) => {
-            const r = b.rating - a.rating;
-            // const p = a.path.localeCompare(b.path);
+            var r = b.rating - a.rating;
+            //r = r ? r : a.library.localeCompare(b.library);
             return r ? r : a.name.localeCompare(b.name);
         });
-        return all.splice(0, maxPatches);
+        all = all.splice(0, maxPatches);
+        return all;
     }
 
     partitionRatedPatches(patches: RatedPatch[], minCC: number = 64, maxCC: number = 96, firstChannel: number = 8): MidiLearnPatch[] {

@@ -77,23 +77,6 @@ class SL88API {
 
             prog.zones[0].instrument = `Track ${1 + i}`;
             prog.zones[0].sound = 'Keys (ch1)';
-            prog.zones[0].enabled = 'On';
-            prog.zones[0].midiChannel = 0;
-            prog.zones[0].stick1X = "pitchbend";
-            prog.zones[0].stick1Y = "modulation";
-            prog.zones[0].pedal1 = 'damperPedal';
-            prog.zones[0].pedal3 = 'aftertouch';
-
-            prog.zones[2].instrument = 'Stick 1 X';
-            prog.zones[2].sound = 'Pitchbend';
-            prog.zones[2].enabled = 'On';
-            prog.zones[2].midiChannel = 14;
-            prog.zones[2].stick1X = "pitchbend";
-
-            prog.zones[3].instrument = 'Stick 1 Y';
-            prog.zones[3].sound = 'Pitchbend';
-            prog.zones[3].enabled = 'On';
-            prog.zones[3].midiChannel = 15;
             prog.zones[3].programChange = i;
             prog.zones[3].LSB = 'Off';  // track mode
             prog.zones[3].MSB = 'Off';  // track number

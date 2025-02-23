@@ -276,8 +276,6 @@ namespace SL {
             wordOrOff("LSB", 0x8c);
             word("lowKey", 0x90);
             word("highKey", 0x94);
-            // word("lowVel", 0x9c);
-            // word("highVel", 0xa0);
             word("highVel", 0x9c);
             word("lowVel", 0xa0);
             word("octave", 0xa4, 3, -3, 3);
@@ -309,7 +307,42 @@ namespace SL {
         }
 
         static newDefault() {
-            return new Program(Program.template);
+            const prog = new Program(Program.template);
+            prog.zones.forEach((z,i) => {
+                z.enabled = 'Off';
+                z.stick1X = 'Off';
+                z.stick1Y = 'Off';
+                z.stick2X = 'Off';
+                z.stick2Y = 'Off';
+                z.stick3X = 'Off';
+                z.stick3Y = 'Off';
+                z.pedal1 = 'Off';
+                z.pedal2 = 'Off';
+                z.pedal3 = 'Off';
+                z.pedal4 = 'Off';
+                z.programChange = 'Off';
+                z.instrument = '';
+                z.sound = '';            
+                z.midiChannel = [zoneChannels[0],zoneChannels[1],zoneChannels[2],zoneChannels[3]][i];    
+                z.enabled = 'On';
+                z.volume = 64;
+                z.lowVel = 0;
+                z.highVel = i ? 0 : 127;
+            })
+
+            // prog.zones[1].enabled = 'Off';
+
+            prog.zones[0].volume = 69;          
+            prog.zones[0].stick2X = "pitchbend";
+            prog.zones[0].stick2Y = "modulation";
+            prog.zones[0].stick3X = 'resonance';
+            prog.zones[0].stick3Y = 'frequency';
+            prog.zones[0].pedal1 = 'damperPedal';
+            prog.zones[0].pedal4 = 'breath';
+            prog.zones[2].stick1X = "pitchbend";
+            prog.zones[3].stick1Y = "pitchbend";
+            prog.zones[3].pedal2 = 'dataIncrement';
+            return prog;
         }
 
         constructor(public data: number[], public device?: SysexBase) {

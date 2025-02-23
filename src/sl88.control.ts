@@ -22,11 +22,8 @@ switch (host.getPlatformType()) {
     break;
 }
 
-const zone1Channel = 0;
-const zone3Channel = 14;
-const zone4Channel = 15;
+const zoneChannels = [0, 13, 14, 15];
 var surface: API.HardwareSurface;
-
 var trackCursor: API.CursorTrack;
 var trackBank: API.TrackBank;
 var trackCount: number = 0;
@@ -44,9 +41,10 @@ var stick1X: API.HardwareSlider;
 var stick1Y: API.HardwareSlider;
 var stick3X: API.HardwareSlider;
 var stick3Y: API.HardwareSlider;
-var zone1Vol: API.AbsoluteHardwareKnob;
-var zone3Vol: API.AbsoluteHardwareKnob;
-var zone4Vol: API.AbsoluteHardwareKnob;
+var zoneVols: API.AbsoluteHardwareKnob[];
+var pedal1: API.HardwareButton;
+var pedal2: API.HardwareButton;
+var pedal4: API.HardwareSlider;
 
 function trackCursorIndexChanged(value: number) {
   trackIndex = value;
@@ -102,6 +100,8 @@ function onMidi(status: number, data1: number, data2: number) {
     trackCursor.sendMidi(status, data1, data2);
 }
 
+type Color = com.bitwig.extension.api.Color;
+
 /** Sets up the SL88's XY sticks so that Bitwig recognizes them */
 function initializeControls(port0: API.MidiIn) {
 
@@ -114,29 +114,44 @@ function initializeControls(port0: API.MidiIn) {
     stick.setAdjustValueMatcher(matcher);
     return stick;
   }
-
   surface = host.createHardwareSurface();
-  stick1X = createStick('Stick1 X', 0, 5, 12, 2, true, port0.createAbsolutePitchBendValueMatcher(14));
-  stick1Y = createStick('Stick1 Y', 5, 0, 2, 12, false, port0.createAbsolutePitchBendValueMatcher(15));
-  stick3X = createStick('Stick3 X', 20, 5, 12, 2, true, port0.createAbsoluteCCValueMatcher(15, midiCC.resonance));
-  stick3Y = createStick('Stick3 Y', 25, 0, 2, 12, false, port0.createAbsoluteCCValueMatcher(15, midiCC.frequency));
+  stick1X = createStick('Stick 1 X', 0, 5, 12, 2, true, port0.createAbsolutePitchBendValueMatcher(14));
+  stick1Y = createStick('Stick 1 Y', 5, 0, 2, 12, false, port0.createAbsolutePitchBendValueMatcher(15));
+  stick3X = createStick('Stick 3 X', 20, 5, 12, 2, true, port0.createAbsoluteCCValueMatcher(0, midiCC.resonance));
+  stick3Y = createStick('Stick 3 Y', 25, 0, 2, 12, false, port0.createAbsoluteCCValueMatcher(0, midiCC.frequency));
   surface.setPhysicalSize(150, 114);
-  
-  zone1Vol = surface.createAbsoluteHardwareKnob('zone1vol');
-  zone1Vol.setAdjustValueMatcher(port0.createAbsoluteCCValueMatcher(zone1Channel, 7));
-  zone1Vol.addBinding(trackCursor.volume());
 
-  zone3Vol = surface.createAbsoluteHardwareKnob('zone3vol');
-  zone3Vol.setAdjustValueMatcher(port0.createAbsoluteCCValueMatcher(zone3Channel, 7));
-  zone3Vol.addBinding(trackCursor.pan());
+  const color = com.bitwig.extension.api.Color;
+  zoneVols = [
+    color.fromRGB(1, .3, 0),
+    color.fromRGB(1, 1, 0),
+    color.fromRGB(0, 1, 0),
+    color.fromRGB(0, 0, 1)
+  ].map((c, i) => {
+    const zone = surface.createAbsoluteHardwareKnob(`Zone ${i + 1}`);
+    zone.setAdjustValueMatcher(port0.createAbsoluteCCValueMatcher(zoneChannels[i], 7));
+    zone.setBounds(49.5 + (i * 16), 20, 16, 16);
+    zone.setLabelColor(c);
+    return zone;
+  })
+  // zoneVols[0].addBinding(trackCursor.volume());  
+  // zoneVols[1].addBinding(trackCursor.pan());
+  zoneVols[0].setName("Red Zone");
+  zoneVols[1].setName("Yellow Zone");
+  zoneVols[2].setName("Green Zone");
+  zoneVols[3].setName("Blue Zone");
 
-  zone4Vol = surface.createAbsoluteHardwareKnob('zone4vol');
-  zone4Vol.setAdjustValueMatcher(port0.createAbsoluteCCValueMatcher(zone4Channel, 7));
-  zone3Vol.addBinding(host.createMasterTrack(0).volume());
+  // if a hardware control consumers a CC, then the plugins don't get the midi message
+  // pedal1 = surface.createHardwareButton('Pedal 1 (Damper)');
+  // pedal1.pressedAction().setActionMatcher(port0.createCCActionMatcher(zoneChannels[0], midiCC.damperPedal, 127))
+  // pedal1.releasedAction().setActionMatcher(port0.createCCActionMatcher(zoneChannels[0], midiCC.damperPedal, 0))
 
-  surface.hardwareElementWithId("zone1vol").setBounds(49.5, 20, 16, 16);
-  surface.hardwareElementWithId("zone3vol").setBounds(66.5, 20, 16, 16);
-  surface.hardwareElementWithId("zone4vol").setBounds(83.5, 20, 16, 16);
+  pedal2 = surface.createHardwareButton('Pedal 2 (Data)');
+  pedal2.pressedAction().setActionMatcher(port0.createCCActionMatcher(zoneChannels[3], midiCC.dataIncrement, 127))
+  pedal2.releasedAction().setActionMatcher(port0.createCCActionMatcher(zoneChannels[3], midiCC.dataIncrement, 0))
+
+  pedal4 = surface.createHardwareSlider('Pedal 4 (breath)');
+  pedal4.setAdjustValueMatcher(port0.createAbsoluteCCValueMatcher(zoneChannels[0], midiCC.breath));
 }
 
 
@@ -169,13 +184,12 @@ async function initializeToMode(trackPrograms = 30, omnisphere = false) {
 
         if (programName !== actualName) {
           const prog = SL.Program.newDefault();
-          setProgramDefaults(prog);
           prog.name = programName;
           prog.zones[0].instrument = instrument;
           prog.zones[0].sound = sound;
           prog.zones[2].LSB = i % 0x80;
           prog.zones[2].MSB = Math.floor(i / 0x80);
-          println(`Updating program ${programNo} to ${programName} (${instrument} : ${sound})`);
+          //println(`Updating program ${programNo} to ${programName} (${instrument} : ${sound})`);
           await slDevice.sendAsync(new SL.ProgramDump(programNo, prog).toHex());
         }
       }
@@ -247,53 +261,14 @@ function cleanUpPatchName(name: string, maxNameLen = 13) {
   return [programName, instrument, sound];
 }
 
-function setProgramDefaults(prog: SL.Program) {
-  prog.zones[0].enabled = 'On';
-  prog.zones[0].midiChannel = zone1Channel;
-  prog.zones[0].stick2X = "pitchbend";
-  prog.zones[0].stick2Y = "modulation";
-  prog.zones[0].stick3X = 'Off';
-  prog.zones[0].stick3Y = "Off";
-  prog.zones[0].pedal1 = 'damperPedal';
-  prog.zones[0].pedal3 = 'foot';
-  prog.zones[0].highVel = 127;
-  prog.zones[0].lowVel = 0;
-  prog.zones[0].stick3X = 'resonance';
-  prog.zones[0].stick3Y = 'frequency';
-
-  prog.zones[2].instrument = 'Stick 1 X';
-  prog.zones[2].sound = 'Pitchbend';
-  prog.zones[2].enabled = 'On';
-  prog.zones[2].midiChannel = zone3Channel;
-  prog.zones[2].stick1X = "pitchbend";
-  prog.zones[2].highVel = 0;
-  prog.zones[2].programChange = 'Off';
-
-  prog.zones[3].instrument = 'Stick 1 Y';
-  prog.zones[3].sound = 'Pitchbend';
-  prog.zones[3].enabled = 'On';
-  prog.zones[3].midiChannel = zone4Channel;
-  prog.zones[3].programChange = 'Off';
-  prog.zones[3].stick1Y = "pitchbend";
-  // prog.zones[3].stick3X = 'resonance';
-  // prog.zones[3].stick3Y = 'frequency';
-  prog.zones[3].stick3X = 'Off';
-  prog.zones[3].stick3Y = 'Off';
-  prog.zones[3].highVel = 0;
-}
-
 /** Creates track selection programs at a given slot as well as a tracks group*/
 async function createTrackPrograms(trackPrograms: number = 30, firstSlot: number = 0, groupSlot: number = 0) {
   const prog = SL.Program.newDefault();
-  setProgramDefaults(prog);
   const indices = [];
   for (var i = 0; i < trackPrograms; i++) {
     prog.name = `Track ${1 + i}`;
     prog.zones[0].instrument = `Track ${1 + i}`;
-    prog.zones[0].sound = 'Keys (ch1)';
-    prog.zones[0].enabled = 'On';
-
-    prog.zones[3].midiChannel = 15;
+    prog.zones[0].sound = '';
     prog.zones[3].programChange = i;
 
     var programNo = firstSlot + i;
@@ -338,11 +313,17 @@ async function initAsync() {
     println('Omnisphere detected');
     var sl88KnobModes = ['Tracks', 'Omnisphere', 'Tracks & Omnisphere']
     const doc = host.getPreferences();
+    var mode = sl88KnobModes[0]
+  
     doc.getEnumSetting('Programs / Knob Mode', 'Selection', sl88KnobModes, sl88KnobModes[0])
-      .addValueObserver(mode => {
+      .addValueObserver(_mode => { mode = _mode; });
+
+    doc.getSignalSetting('SL88 Patch Programming', 'Actions', 'Reprogram Now')
+      .addSignalObserver(() => {
         var useOmni = mode.match(/Omnisphere/) ? true : false;
         initializeToMode(mode.startsWith('Tracks') ? 30 : 0, useOmni);
-      });
+      }
+      );
   }
   else {
     initializeToMode(30);
