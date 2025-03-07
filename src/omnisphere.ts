@@ -137,9 +137,13 @@ class Omnisphere {
     }
 
     setMidiLearnPatches(patches: MidiLearnPatch[]) {
-        var attributes = patches.map(r =>
-            `Ch${r.index}="${r.channel}" Kind${r.index}="176" ID${r.index}="${r.cc}" End${r.index}="0" NRPN${r.index}="0" Patch${r.index}="${r.name}" Lib${r.index}="${r.library}" PN${r.index}="0"`
-        ).join(" ");
+        var attributes = patches.map(r => {
+            const ix = r.index;
+            return `Ch${ix}="${r.channel}" Kind${ix}="176" ` + 
+                   `ID${ix}="${r.cc}" End${ix}="0" ` + 
+                   `NRPN${ix}="0" Patch${ix}="${r.name}" ` + 
+                   `Lib${ix}="${r.library}" PN${ix}="0"`
+        }).join(" ");
         this.setDefaultMultiMidiLearnAttributes(attributes);
     }
 

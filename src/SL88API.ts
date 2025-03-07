@@ -95,49 +95,4 @@ class SL88API {
         const indices = Array(numberOfTracks).map((_, i) => firstTrackProgram + i);
         await this.device.sendAsync(new SL.GroupDump(tracksGroup, 'TRACKS', indices, true).toHex());
     }
-
-    // createProgramTemplate() {
-    //     const prog = new SL.Program(SL.Program.template);
-    //     prog.name = `INIT PROGRAM`;
-    //     for (let zone of prog.zones) {
-    //       zone.instrument = '';
-    //       zone.sound = '';
-    //       zone.enabled = 'Disabled';
-    //       zone.midiChannel = 0;
-    //       zone.midiPort = "USB";
-    //       zone.volume = 'Off';
-    //       zone.programChange = 'Off';
-    //       zone.LSB = 'Off';
-    //       zone.MSB = 'Off';
-    //       zone.stick1X = "Off";
-    //       zone.stick1Y = 'Off';
-    //       zone.stick2X = 'Off';
-    //       zone.stick2Y = 'Off';
-    //       zone.stick3X = 'Off';
-    //       zone.stick3Y = 'Off';
-    //       zone.pedal1 = 'Off';
-    //       zone.pedal2 = 'Off';
-    //       zone.pedal3 = 'Off';
-    //       zone.pedal4 = 'Off';
-    //       zone.afterTouch = true;
-    //       zone.curveType = 'Linear';
-    //       zone.octave = 0;
-    //       zone.transpose = 0;
-    //       zone.lowVel = 0;
-    //       zone.highVel = 127;
-    //       zone.lowKey = 21;
-    //       zone.highKey = 108;
-    //     }
-
-
-    //     prog.zones[0].enabled = 'On';
-    //     prog.zones[0].stick2X = 'pitchbend';
-    //     prog.zones[0].stick2Y = 'modulation';
-    //     prog.zones[0].stick3X = 'sound1';
-    //     prog.zones[0].stick3Y = 'sound4';
-    //     prog.zones[0].pedal1 = 'damperPedal';
-    //     prog.zones[0].pedal3 = 'aftertouch';
-    //     prog.zones[0].curveType = 'User1';
-    //     println('[' + prog.data.map(x => x || 0).join(",") + '];')
-    //   }
 }

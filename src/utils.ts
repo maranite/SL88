@@ -1,3 +1,6 @@
+function keyForValue<T extends object>(object: T, value: any) : keyof T {
+  return Object.keys(object).find(key => object[key as keyof T] === value) as keyof T;
+}
 
 ///--------------
 

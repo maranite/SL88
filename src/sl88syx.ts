@@ -148,13 +148,13 @@ namespace SL {
         User6: 0x54
     }
 
-    const StickAssign: { [x in ('Off' | 'pitchbend' | 'aftertouch' | Exclude<keyof typeof midiCC, 'bankSelect'>)]: number } = {
+    export const StickAssign: { [x in ('Off' | 'pitchbend' | 'aftertouch' | Exclude<keyof typeof midiCC, 'bankSelect'>)]: number } = {
         off: 0,
         pitchbend: 1,
         aftertouch: 2
     } as any;
    
-    const PedalAssign: { [x in ('Off' | 'aftertouch' | Exclude<keyof typeof midiCC, 'bankSelect'>)]: number } = {
+    export const PedalAssign: { [x in ('Off' | 'aftertouch' | Exclude<keyof typeof midiCC, 'bankSelect'>)]: number } = {
         off: 0,
         aftertouch: 1
     } as any;
@@ -307,7 +307,7 @@ namespace SL {
         }
 
         static newDefault() {
-            const prog = new Program(Program.template);
+            const prog = new Program(Array.from(Program.template));
             prog.zones.forEach((z,i) => {
                 z.enabled = 'Off';
                 z.stick1X = 'Off';
@@ -347,7 +347,7 @@ namespace SL {
 
         constructor(public data: number[], public device?: SysexBase) {
             this.zones = [0, 1, 2, 3].map(i => new Zone(this, i));
-            this.getter = new DataGetter(data);
+            this.getter = new DataGetter(data ?? Array.from(Program.template));
         }
 
         getter: DataGetter;
