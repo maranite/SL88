@@ -85,7 +85,8 @@ function setupPedals(doc: API.Preferences) {
         keyForValue(slPedal2Modes, pedalModes[i])
       ).addValueObserver(
         (key: string) => {
-          pedalModes[i] = slPedal2Modes[key as keyof typeof slPedal2Modes];
+          pedalModes[i] = 1 + slPedal2Modes[key as keyof typeof slPedal2Modes];
+          host.showPopupNotification(`Pedal${pedal} [${i}] is ${key} ${pedalModes[i]}`)
         }
       )
     }
@@ -130,9 +131,9 @@ function init() {
   }
 
   const port0 = host.getMidiInPort(0);
-  port0.createNoteInput('SL88', '80????', '90????', 'A?????', 'D0????', 'E0????');
+  port0.createNoteInput('SL88', '80????', '90????', 'A?????', 'B0????', 'D0????', 'E0????');
   port0.setMidiCallback((status: number, data1: number, data2: number) => {
-    if ((status & 0xF0) == 0xc0)
+    if ((status & 0xF0) == 0xc0)// || (status & 0xF0) == 0xB0)
       trackCursor.sendMidi(status, data1, data2);
   });
 
@@ -141,26 +142,24 @@ function init() {
   const doc = host.getPreferences();
   setupPedals(doc);
 
-  doc.getNumberSetting(
-    `Lowest Omnisphere Program`,
-    'SL88 Patches',
-    0, 249, 1, "Program", 0).addValueObserver(249, c => minProgramNo = c);
+  const omnicat = 'Omnisphere Support';
 
-  doc.getNumberSetting(
-    `Highest Omnisphere Program`,
-    'SL88 Patches',
-    0, 249, 1, "Program", 128).addValueObserver(249, c => maxProgramNo = c);
+  doc.getNumberSetting(`Lowest Omnisphere Program`, omnicat,
+    0, 249, 1, "", 0).addValueObserver(249, c => minProgramNo = c);
 
-    doc.getSignalSetting('Initialize All', 'Preset Programming', 'Reprogram Now').addSignalObserver(() => {  initializeToDefault();  });
-    doc.getSignalSetting('Program Omnisphere Patches', 'Preset Programming', 'Reprogram Now').addSignalObserver(() => {  initializeToMode();  });
+  doc.getNumberSetting(`Highest Omnisphere Program`, omnicat,
+    0, 249, 1, "", 128).addValueObserver(249, c => maxProgramNo = c);
+
+  doc.getSignalSetting('Initialize All', 'Preset Programming', 'Reprogram Now').addSignalObserver(() => { initializeToDefault(); });
+  doc.getSignalSetting('Program Omnisphere Patches', omnicat, 'Reprogram Now').addSignalObserver(() => { initializeToMode(); });
 }
 
 
 async function writeProgram(programNo: number, callback: (program: SL.Program) => void) {
   const prog = SL.Program.newDefault();
-  const ch = 8 + Math.floor(programNo/0x80);
+  const ch = 14 + Math.floor(programNo / 0x80);
   const pc = programNo % 0x80;
-  
+
   prog.name = `Prog ${pc} c${ch}`;
   prog.zones.forEach((z, i) => {
     z.midiChannel = i == 1 ? ch : zoneChannels[i];
@@ -186,7 +185,6 @@ async function writeProgram(programNo: number, callback: (program: SL.Program) =
     z.highKey = i === 0 ? 108 : 21; //C8
     z.lowVel = 0;
     z.highVel = i === 0 ? 127 : 0;
-    
   })
   callback && callback(prog);
   await slDevice.sendAsync(new SL.ProgramDump(programNo, prog).toHex());
@@ -206,7 +204,7 @@ async function initializeToMode() {
     const patches = omni.getTopRatedPatches(maxOmniPatchCount);
 
     var groups: { [key: string]: number[]; } = {};
-    var learned : MidiLearnPatch[] = [];
+    var learned: MidiLearnPatch[] = [];
 
     for (let i = 0; i < patches.length; i++) {
       try {
@@ -217,19 +215,19 @@ async function initializeToMode() {
         groups[lib].push(programNo);
         const [programName, instrument, sound] = cleanUpPatchName(patch.name);
         host.showPopupNotification(`Storing ${i} ${patch.name} in ${patch.library}`);
-      
+
         await writeProgram(i, (prog) => {
           prog.name = programName;
           prog.zones[0].instrument = instrument;
           prog.zones[0].sound = sound;
           learned.push({
-              index: i,
-              name: patch.name,
-              library: lib,
-              kind: 192,
-              channel : prog.zones[1].midiChannel,
-              id : prog.zones[1].programChange as number
-            });
+            index: i,
+            name: patch.name,
+            library: patch.library,
+            kind: 192,
+            channel: prog.zones[1].midiChannel,
+            id: prog.zones[1].programChange as number
+          });
         });
       }
       catch (e) {
@@ -255,9 +253,9 @@ async function initializeToDefault() {
   host.showPopupNotification("Initializing all SL88 Presets");
 
   for (let i = 0; i < 250; i++) {
-    host.showPopupNotification(`Initializing Program ${i + 1}`);    
+    host.showPopupNotification(`Initializing Program ${i + 1}`);
     await writeProgram(i, (prog) => {
-      const zone = Math.floor(i/0x80);
+      const zone = Math.floor(i / 0x80);
       const pc = i % 0x80;
       prog.name = `Prog ${pc} c${zoneChannels[zone]}`;
       prog.zones[zone].programChange = pc;
