@@ -122,27 +122,14 @@ class Omnisphere {
         return all;
     }
 
-    // partitionRatedPatches(patches: RatedPatch[], minCC: number = 64, maxCC: number = 96, firstChannel: number = 8): MidiLearnPatch[] {
-    //     const maxPatchesPerChannel = maxCC = minCC;
-    //     return patches.map((r, i) => {
-    //         return {
-    //             index : i,
-    //             name: r.name,
-    //             library: r.library,
-    //             channel: firstChannel + Math.floor(i / maxPatchesPerChannel),
-    //             cc: minCC + (i % maxPatchesPerChannel)
-    //         } as MidiLearnPatch;
-    //     });
-    // }
-
     setMidiLearnPatches(patches: MidiLearnPatch[]) {
         var attributes = patches.map(r => {
             const ix = r.index;
             return `Ch${ix}="${r.channel}" ` + 
-                    `Kind${ix}="${r.kind}"` + 
+                    `Kind${ix}="${r.kind}" ` + 
                     `ID${ix}="${r.id}" ` +
-                    `End${ix}85="0"` +
-                    `NRPN${ix}="0"` +
+                    `End${ix}85="0" ` +
+                    `NRPN${ix}="0" ` +
                     `Patch${ix}="${r.name}" ` + 
                     `Lib${ix}="${r.library}" ` + 
                     `PN${ix}="0"`

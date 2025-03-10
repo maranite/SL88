@@ -118,7 +118,7 @@ function init() {
 
   trackCursor = host.createCursorTrack("SL88_Track", "SL88 Track Selector", 0, 0, true);
 
-  var sl88sx = new MidiPair("SL88sx", host.getMidiInPort(0), host.getMidiOutPort(0));
+  var sl88sx = new MidiPair("SL88sx", host.getMidiInPort(1), host.getMidiOutPort(1));
   slDevice = new SL.SLDevice(sl88sx);
   slDevice.onUnhandledSysex = hex => {
     const r = SL.try_decode(hex);
@@ -135,10 +135,10 @@ function init() {
     if ((status & 0xF0) == 0xc0)
       trackCursor.sendMidi(status, data1, data2);
   });
-  
+
   setupSticks(port0);
 
-  const doc = host.getPreferences();  
+  const doc = host.getPreferences();
   setupPedals(doc);
 
   doc.getNumberSetting(
@@ -204,7 +204,7 @@ async function initializeToMode() {
 
     // we probably want to switch to Program Change + channel here.
     var learned = patches.map((p, programNo) => {
-      const lib = p.library ?? 'Unknown';
+      const lib = (p.library ?? 'Unknown').replace(/ Library/gi, '');
       groups[lib] = groups[lib] || [];
       groups[lib].push(programNo);
       return {
@@ -256,34 +256,27 @@ function cleanUpPatchName(name: string, maxNameLen = 13) {
     .replace('&apos;', "'")
     .replace(/ and /gi, '&')
     .replace(/\+/gi, '&')
+    .replace(/ \^/gi, '')
     .replace(/Guitar/gi, 'Gtr')
     .replace(/Piano/gi, 'Pno')
     .replace(/String/gi, 'Str')
-    .replace(/LA Custom /gi, '')
-    .replace(/ \^/gi, '')
-    //.replace(/Acoustic/gi, 'Acc')
-    .replace(/Trilian(.+)-/gi, 'Trln')
+    .replace(/LA Custom/gi, 'LA')
+    .replace(/Trilian(.+)-/gi, 'Trl')
     .trim();
 
   var parts = programName.split(' - ');
   if (parts.length > 1) sound = parts.shift()!;
   programName = parts.join(" ");
 
-  var rx = /^(.+)[ -]+(\w+)$/;
-  var m = programName.match(rx);
-  while (m && programName.length > maxNameLen) {
-    programName = m[1].trim();
-    instrument = `${m[2]} ${instrument}`.trim();
-    m = programName.match(rx);
+  while (programName.length > maxNameLen) {
+    var s = programName.split(' ');
+    if (s.length < 2)
+      programName = programName.substring(0, maxNameLen - 1);
+    else {
+      instrument = `${s.pop()} ${instrument}`;
+      programName = s.join(' ');
+    }
   }
-  m = instrument.match(rx);
-  while (m && instrument.length > 11) {
-    instrument = m[1].trim();
-    sound = `${m[2]} ${sound}`.trim();
-    m = instrument.match(rx);
-  }
-  if (programName.length > maxNameLen)
-    programName = programName.replace(/\s+/g, '').substring(0, maxNameLen - 1);
   return [programName, instrument, sound];
 }
 
