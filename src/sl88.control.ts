@@ -175,7 +175,7 @@ async function writeProgram(programNo: number, callback: (program: SL.Program) =
     z.pedal4 = i === 0 ? keyForValue(SL.PedalAssign, pedalModes[3]) : 'Off';
     z.instrument = '';
     z.sound = '';
-    z.volume = 64;
+    z.volume = 'Off';
     z.lowKey = 21; //A0
     z.highKey = i === 0 ? 108 : 21; //C8
     z.lowVel = 0;
