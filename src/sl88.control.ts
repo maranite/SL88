@@ -151,18 +151,24 @@ function init() {
     'SL88 Patches',
     0, 249, 1, "Program", 128).addValueObserver(249, c => maxProgramNo = c);
 
-  doc.getSignalSetting('Reprogram', 'Actions', 'Reprogram Now').addSignalObserver(() => {
-    initializeToMode();
-  });
+    doc.getSignalSetting('Initialize All', 'Preset Programming', 'Reprogram Now').addSignalObserver(() => {  initializeToDefault();  });
+    doc.getSignalSetting('Program Omnisphere Patches', 'Preset Programming', 'Reprogram Now').addSignalObserver(() => {  initializeToMode();  });
 }
 
 
 async function writeProgram(programNo: number, callback: (program: SL.Program) => void) {
   const prog = SL.Program.newDefault();
+  const ch = 8 + Math.floor(programNo/0x80);
+  const pc = programNo % 0x80;
+  
+  prog.name = `Prog ${pc} c${ch}`;
   prog.zones.forEach((z, i) => {
-    z.midiChannel = zoneChannels[i];
+    z.midiChannel = i == 1 ? ch : zoneChannels[i];
+    z.programChange = i === 1 ? pc : 'Off';
+    z.LSB = 'Off';
+    z.MSB = 'Off';
     z.midiPort = 'USB';
-    z.enabled = i === 1 ? 'Off' : 'On';
+    z.enabled = 'On';
     z.stick1X = i === 2 ? 'pitchbend' : 'Off';
     z.stick1Y = i === 3 ? 'pitchbend' : 'Off';
     z.stick2X = i === 0 ? 'pitchbend' : 'Off';
@@ -180,9 +186,7 @@ async function writeProgram(programNo: number, callback: (program: SL.Program) =
     z.highKey = i === 0 ? 108 : 21; //C8
     z.lowVel = 0;
     z.highVel = i === 0 ? 127 : 0;
-    z.programChange = 'Off';
-    z.LSB = 'Off';
-    z.MSB = 'Off';
+    
   })
   callback && callback(prog);
   await slDevice.sendAsync(new SL.ProgramDump(programNo, prog).toHex());
@@ -197,38 +201,35 @@ async function initializeToMode() {
 
   const omni = new Omnisphere();
   const maxOmniPatchCount = maxProgramNo - minProgramNo;
+
   if (maxOmniPatchCount > 0) {
     const patches = omni.getTopRatedPatches(maxOmniPatchCount);
 
     var groups: { [key: string]: number[]; } = {};
+    var learned : MidiLearnPatch[] = [];
 
-    // we probably want to switch to Program Change + channel here.
-    var learned = patches.map((p, programNo) => {
-      const lib = (p.library ?? 'Unknown').replace(/ Library/gi, '');
-      groups[lib] = groups[lib] || [];
-      groups[lib].push(programNo);
-      return {
-        index: programNo,
-        name: p.name,
-        library: lib,
-        channel: zoneChannels[programNo < 0x80 ? 2 : 3],
-        kind: 192,
-        id: programNo
-      } as MidiLearnPatch;
-    });
-
-    omni.setMidiLearnPatches(learned);
-
-    for (let i = 0; i < learned.length; i++) {
+    for (let i = 0; i < patches.length; i++) {
       try {
-        host.showPopupNotification(`Storing ${i} ${learned[i].name} in ${learned[i].library}`);
-        const [programName, instrument, sound] = cleanUpPatchName(learned[i].name);
-
+        const patch = patches[i];
+        const programNo = minProgramNo + i;
+        const lib = (patch.library ?? 'Unknown').replace(/ Library/gi, '');
+        groups[lib] = groups[lib] || [];
+        groups[lib].push(programNo);
+        const [programName, instrument, sound] = cleanUpPatchName(patch.name);
+        host.showPopupNotification(`Storing ${i} ${patch.name} in ${patch.library}`);
+      
         await writeProgram(i, (prog) => {
           prog.name = programName;
           prog.zones[0].instrument = instrument;
           prog.zones[0].sound = sound;
-          prog.zones[i < 0x80 ? 2 : 3].programChange = i % 0x80;
+          learned.push({
+              index: i,
+              name: patch.name,
+              library: lib,
+              kind: 192,
+              channel : prog.zones[1].midiChannel,
+              id : prog.zones[1].programChange as number
+            });
         });
       }
       catch (e) {
@@ -236,12 +237,31 @@ async function initializeToMode() {
       }
     }
 
+    omni.setMidiLearnPatches(learned);
+
     let groupNo = 0;
     for (let groupName in groups) {
       host.showPopupNotification(`Writing Group ${groupName}`);
       const grp = new SL.GroupDump(groupNo++, groupName, groups[groupName], true).toHex();
       await slDevice.sendAsync(grp);
     }
+  }
+}
+
+
+// This function needs an overhaul so that it programs foot pedals correctly
+async function initializeToDefault() {
+
+  host.showPopupNotification("Initializing all SL88 Presets");
+
+  for (let i = 0; i < 250; i++) {
+    host.showPopupNotification(`Initializing Program ${i + 1}`);    
+    await writeProgram(i, (prog) => {
+      const zone = Math.floor(i/0x80);
+      const pc = i % 0x80;
+      prog.name = `Prog ${pc} c${zoneChannels[zone]}`;
+      prog.zones[zone].programChange = pc;
+    });
   }
 }
 
