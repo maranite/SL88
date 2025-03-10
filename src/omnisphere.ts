@@ -1,7 +1,5 @@
 load('java.js');
 
-
-
 class RatedPatch {
     name: string = "";
     path: string = "";
@@ -14,7 +12,8 @@ type MidiLearnPatch = {
     name: string;
     library: string;
     channel: number;
-    cc: number;
+    kind: 176|192;
+    id: number;
 }
 
 
@@ -123,26 +122,30 @@ class Omnisphere {
         return all;
     }
 
-    partitionRatedPatches(patches: RatedPatch[], minCC: number = 64, maxCC: number = 96, firstChannel: number = 8): MidiLearnPatch[] {
-        const maxPatchesPerChannel = maxCC = minCC;
-        return patches.map((r, i) => {
-            return {
-                index : i,
-                name: r.name,
-                library: r.library,
-                channel: firstChannel + Math.floor(i / maxPatchesPerChannel),
-                cc: minCC + (i % maxPatchesPerChannel)
-            } as MidiLearnPatch;
-        });
-    }
+    // partitionRatedPatches(patches: RatedPatch[], minCC: number = 64, maxCC: number = 96, firstChannel: number = 8): MidiLearnPatch[] {
+    //     const maxPatchesPerChannel = maxCC = minCC;
+    //     return patches.map((r, i) => {
+    //         return {
+    //             index : i,
+    //             name: r.name,
+    //             library: r.library,
+    //             channel: firstChannel + Math.floor(i / maxPatchesPerChannel),
+    //             cc: minCC + (i % maxPatchesPerChannel)
+    //         } as MidiLearnPatch;
+    //     });
+    // }
 
     setMidiLearnPatches(patches: MidiLearnPatch[]) {
         var attributes = patches.map(r => {
             const ix = r.index;
-            return `Ch${ix}="${r.channel}" Kind${ix}="176" ` + 
-                   `ID${ix}="${r.cc}" End${ix}="0" ` + 
-                   `NRPN${ix}="0" Patch${ix}="${r.name}" ` + 
-                   `Lib${ix}="${r.library}" PN${ix}="0"`
+            return `Ch${ix}="${r.channel}" ` + 
+                    `Kind${ix}="${r.kind}"` + 
+                    `ID${ix}="${r.id}" ` +
+                    `End${ix}85="0"` +
+                    `NRPN${ix}="0"` +
+                    `Patch${ix}="${r.name}" ` + 
+                    `Lib${ix}="${r.library}" ` + 
+                    `PN${ix}="0"`
         }).join(" ");
         this.setDefaultMultiMidiLearnAttributes(attributes);
     }
@@ -155,7 +158,7 @@ class Omnisphere {
         if (start > 0) {
             var line = rawXml[start];
             println(line)
-            var rx = /Ch(?<preset>\d+)="(?<channel>\d+)"\s+Kind\k<preset>="176"\s+ID\k<preset>="(?<cc>\d+)".*?Patch\k<preset>="(?<name>[^"]+)"\s+Lib\k<preset>="(?<library>[^"]+)"/g;
+            var rx = /Ch(?<preset>\d+)="(?<channel>\d+)"\s+Kind\k<preset>="(?<kind>176|192)"\s+ID\k<preset>="(?<id>\d+)".*?Patch\k<preset>="(?<name>[^"]+)"\s+Lib\k<preset>="(?<library>[^"]+)"/g;
             var group = rx.exec(line)?.groups;
             while (group) {
                 const r = {
@@ -163,7 +166,8 @@ class Omnisphere {
                     name: group.name,
                     library: group.library,
                     channel: parseInt(group.channel),
-                    cc: parseInt(group.cc)
+                    kind: parseInt(group.kind),
+                    id: parseInt(group.id)
                 } as MidiLearnPatch;
                 result.push(r);
                 group = rx.exec(line)?.groups;

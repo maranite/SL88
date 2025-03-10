@@ -3,7 +3,6 @@ loadAPI(19);
 load('java.js');
 load('utils.js');
 load('sl88syx.js');
-load('sl88API.js');
 load('omnisphere.js');
 
 host.setShouldFailOnDeprecatedUse(false);
@@ -24,11 +23,6 @@ Notes to self:
 
 To Do:
 ======
-- Assign pedals (easy)
-  ... Then pref make assignable (options)
-
-  -------- Use Bank MSB on first 128 programs for Omnisphere, LSB on next 128.
-  Can't do this - Omnispere doesn't respond to Program change messages in VST3 mode, and cannot be programmed to react to specific CC values :)
 
 - Add programs to categories.
 
@@ -42,8 +36,6 @@ To Do:
   * Create a reader for it
   * Integrate into this script.
 
-- Program track selection into last 24 program slots
-
 */
 
 switch (host.getPlatformType()) {
@@ -56,15 +48,7 @@ switch (host.getPlatformType()) {
 const zoneChannels = [0, 13, 14, 15];
 var surface: API.HardwareSurface;
 var trackCursor: API.CursorTrack;
-var trackBank: API.TrackBank;
-var trackCount: number = 0;
-var trackIndex: number = 0;
-var sl88trackIndex: number = -1;
 
-var bankLSB: number = 0;
-var bankMSB: number = 0;
-
-var slapi: SL88API;
 var slDevice: SL.SLDevice
 var stick1X: API.HardwareSlider;
 var stick1Y: API.HardwareSlider;
@@ -73,79 +57,12 @@ var stick3Y: API.HardwareSlider;
 var pedalModes: number[] = [
   midiCC.damperPedal,
   midiCC.sostenuto,
-  midiCC.softPedal,
+  midiCC.hold2,
   midiCC.foot
 ]
 
-function programChangeToProgramNo(programNo: number, bankLSB: number = 0, bankMSB: number = 0) {
-  return programNo + (bankLSB * 0x80) + (bankMSB * 0x80 * 0x80);
-}
-
-function programNoToProgramChange(programNo: number) {
-  return {
-    programChange: programNo % 0x80,
-    bankLSB: (programNo / 0x80) % 0x80,
-    bankMSB: ((programNo / 0x80) / 0x80) % 0x80,
-  }
-}
-
-function programNoToCcChanel(programNo: number) {
-  return {
-    channel: 8 + Math.floor(programNo / 32),
-    cc: programNo % 32
-  };
-}
-
-function ccChanelToProgramNo(cc: number, channel: number) {
-  const i = (channel - 8) * 32 + cc;
-  return {
-    programNo: i % 0x80,
-    bankMSB: Math.floor(i / 0x80)
-  };
-};
-
-
-/** Called when a short MIDI message is received on MIDI input port 0. */
-function onMidi(status: number, data1: number, data2: number) {
-  switch (status) {
-    // Track selection
-    case 0xcf: // ProgramChange on ch 16: Track Select 
-      if (trackIndex !== data1) {
-        sl88trackIndex = data1;
-        if (sl88trackIndex !== trackIndex && sl88trackIndex < trackCount) {
-          var track = trackBank.getItemAt(sl88trackIndex);
-          track.selectInEditor();
-          track.selectInMixer();
-        }
-      }
-      return;
-
-    case 0xbe: // Omnisphere Bank Select on ch 14
-      switch (data1) {
-        case 32: bankLSB = data2; return;
-        case 0: bankMSB = data2; return;
-      }
-      return;
-
-    case 0xce: // Omnisphere Program Change on ch 14
-      sl88trackIndex - 1;
-      var programNo = programChangeToProgramNo(data2, bankLSB, bankMSB);
-      const { cc, channel } = programNoToCcChanel(programNo);
-      trackCursor.sendMidi(0xb0 + channel, cc, 127);
-
-      // slDevice.send(new SL.ProgramParam(0x80, 1, [95]).toHex());  // Set volume on zone 1 to 95
-      return;
-  }
-
-  // Object.entries(midiCC).forEach(([k, v]) => {
-  //   if (v === data1)
-  //     println(`>>>  ${k} : ${byte2hex(data2)}`);
-  // });
-
-  // if ((status & 0xf0) === 0xb0)
-  if ((status & 0x0f) === 0)
-    trackCursor.sendMidi(status, data1, data2);
-}
+let minProgramNo: number = 0;
+let maxProgramNo: number = 128;
 
 
 function setupPedals(doc: API.Preferences) {
@@ -154,6 +71,7 @@ function setupPedals(doc: API.Preferences) {
     'Sostenuto': midiCC.sostenuto,
     'Soft': midiCC.softPedal,
     'Legato': midiCC.legatoFootswitch,
+    'Hold 2': midiCC.hold2,
     'Foot': midiCC.foot,
     'Breath': midiCC.breath
   };
@@ -161,8 +79,8 @@ function setupPedals(doc: API.Preferences) {
   ['1', '2', '3', '4'].forEach(
     (pedal, i) => {
       doc.getEnumSetting(
-        'SL88 Patch Programming',
         `Pedal ${pedal}`,
+        'SL88 Pedals',
         Object.keys(slPedal2Modes),
         keyForValue(slPedal2Modes, pedalModes[i])
       ).addValueObserver(
@@ -198,21 +116,9 @@ function setupSticks(port0: API.MidiIn) {
 
 function init() {
 
-  function trackCursorIndexChanged(value: number) {
-    trackIndex = value;
-    if (sl88trackIndex !== -1 && sl88trackIndex !== trackIndex) {
-      slapi.loadProgram(trackIndex);
-    }
-  }
-
-  trackBank = host.createTrackBank(32, 0, 0);
-  trackBank.itemCount().addValueObserver((value) => (trackCount = value), 0);
-
   trackCursor = host.createCursorTrack("SL88_Track", "SL88 Track Selector", 0, 0, true);
-  trackCursor.volume().markInterested();
-  trackCursor.position().addValueObserver(trackCursorIndexChanged, -1);
 
-  var sl88sx = new MidiPair("SL88sx", host.getMidiInPort(1), host.getMidiOutPort(1));
+  var sl88sx = new MidiPair("SL88sx", host.getMidiInPort(0), host.getMidiOutPort(0));
   slDevice = new SL.SLDevice(sl88sx);
   slDevice.onUnhandledSysex = hex => {
     const r = SL.try_decode(hex);
@@ -223,25 +129,39 @@ function init() {
     }
   }
 
-  slapi = new SL88API(slDevice);
   const port0 = host.getMidiInPort(0);
   port0.createNoteInput('SL88', '80????', '90????', 'A?????', 'D0????', 'E0????');
-  port0.setMidiCallback(onMidi);
-
-  const doc = host.getPreferences();
-  // consolidate / refactor this bit:
+  port0.setMidiCallback((status: number, data1: number, data2: number) => {
+    if ((status & 0xF0) == 0xc0)
+      trackCursor.sendMidi(status, data1, data2);
+  });
+  
   setupSticks(port0);
+
+  const doc = host.getPreferences();  
   setupPedals(doc);
+
+  doc.getNumberSetting(
+    `Lowest Omnisphere Program`,
+    'SL88 Patches',
+    0, 249, 1, "Program", 0).addValueObserver(249, c => minProgramNo = c);
+
+  doc.getNumberSetting(
+    `Highest Omnisphere Program`,
+    'SL88 Patches',
+    0, 249, 1, "Program", 128).addValueObserver(249, c => maxProgramNo = c);
 
   doc.getSignalSetting('Reprogram', 'Actions', 'Reprogram Now').addSignalObserver(() => {
     initializeToMode();
   });
 }
 
+
 async function writeProgram(programNo: number, callback: (program: SL.Program) => void) {
   const prog = SL.Program.newDefault();
   prog.zones.forEach((z, i) => {
     z.midiChannel = zoneChannels[i];
+    z.midiPort = 'USB';
     z.enabled = i === 1 ? 'Off' : 'On';
     z.stick1X = i === 2 ? 'pitchbend' : 'Off';
     z.stick1Y = i === 3 ? 'pitchbend' : 'Off';
@@ -256,8 +176,8 @@ async function writeProgram(programNo: number, callback: (program: SL.Program) =
     z.instrument = '';
     z.sound = '';
     z.volume = 64;
-    // z.lowKey = 0;
-    // z.highKey = 0;
+    z.lowKey = 21; //A0
+    z.highKey = i === 0 ? 108 : 21; //C8
     z.lowVel = 0;
     z.highVel = i === 0 ? 127 : 0;
     z.programChange = 'Off';
@@ -270,76 +190,59 @@ async function writeProgram(programNo: number, callback: (program: SL.Program) =
 
 
 // This function needs an overhaul so that it programs foot pedals correctly
-async function initializeToMode(trackPrograms = 32) {
+async function initializeToMode() {
 
-  println("Checking SL88");
-  var dump = await slapi.getConfigDump();
-
-  var tracksOK = true;
-  var indices = [] as number[];
-  for (let i = 0; i < trackPrograms; i++) {
-    const expectedName = `Track ${1 + i}`;
-    const actualName = dump.names[i];
-    const programNo = 250 - trackPrograms + i;
-    if (expectedName !== actualName) {
-      tracksOK = false;
-      await writeProgram(programNo, (prog) => {
-        prog.name = `Track ${1 + i}`;
-        prog.zones[3].programChange = i;
-      });
-    }
-    indices.push(programNo);
-  }
-  if (!tracksOK)
-    await slDevice.sendAsync(new SL.GroupDump(11, 'Track Sel', indices, true).toHex());
-
+  host.showPopupNotification("Loading Omnisphere Patches");
   println("Loading Omnisphere Patches");
 
   const omni = new Omnisphere();
-  const patches = omni.getTopRatedPatches(250 - trackPrograms);
+  const maxOmniPatchCount = maxProgramNo - minProgramNo;
+  if (maxOmniPatchCount > 0) {
+    const patches = omni.getTopRatedPatches(maxOmniPatchCount);
 
-  var groups: { [key: string]: number[]; } = {};
+    var groups: { [key: string]: number[]; } = {};
 
-  var learned = patches.map((p, programNo) => {
-    groups[p.library] = groups[p.library] || [];
-    groups[p.library].push(programNo);
-    
-    const { cc, channel } = programNoToCcChanel(programNo);
-    return {
-      index: programNo,
-      name: p.name,
-      library: p.library,
-      // ideally we want category here too!
-      channel: channel,
-      cc: cc
-    } as MidiLearnPatch;
-  });
+    // we probably want to switch to Program Change + channel here.
+    var learned = patches.map((p, programNo) => {
+      const lib = p.library ?? 'Unknown';
+      groups[lib] = groups[lib] || [];
+      groups[lib].push(programNo);
+      return {
+        index: programNo,
+        name: p.name,
+        library: lib,
+        channel: zoneChannels[programNo < 0x80 ? 2 : 3],
+        kind: 192,
+        id: programNo
+      } as MidiLearnPatch;
+    });
 
-  omni.setMidiLearnPatches(learned);
+    omni.setMidiLearnPatches(learned);
 
-  for (let i = 0; i < learned.length; i++) {
-    try {
-      const [programName, instrument, sound] = cleanUpPatchName(learned[i].name);
-      const { programChange, bankLSB, bankMSB } = programNoToProgramChange(i);
-      await writeProgram(i, (prog) => {
-        prog.name = programName;
-        prog.zones[0].instrument = instrument;
-        prog.zones[0].sound = sound;
-        prog.zones[2].programChange = programChange;
-        prog.zones[2].LSB = bankLSB ? bankLSB : 'Off';
-        prog.zones[2].MSB = bankMSB ? bankMSB : 'Off';
-      });
+    for (let i = 0; i < learned.length; i++) {
+      try {
+        host.showPopupNotification(`Storing ${i} ${learned[i].name} in ${learned[i].library}`);
+        const [programName, instrument, sound] = cleanUpPatchName(learned[i].name);
+
+        await writeProgram(i, (prog) => {
+          prog.name = programName;
+          prog.zones[0].instrument = instrument;
+          prog.zones[0].sound = sound;
+          prog.zones[i < 0x80 ? 2 : 3].programChange = i % 0x80;
+        });
+      }
+      catch (e) {
+        errorln(`Error occured initializing omnisphere programs ${e}`);
+      }
     }
-    catch (e) {
-      errorln(`Error occured initializing omnisphere programs ${e}`);
+
+    let groupNo = 0;
+    for (let groupName in groups) {
+      host.showPopupNotification(`Writing Group ${groupName}`);
+      const grp = new SL.GroupDump(groupNo++, groupName, groups[groupName], true).toHex();
+      await slDevice.sendAsync(grp);
     }
   }
-
-  
-  for(let groupName in groups) {
-    await slDevice.sendAsync(new SL.GroupDump(0, groupName, groups[groupName], true).toHex());
-  }
-
 }
 
 
@@ -383,7 +286,6 @@ function cleanUpPatchName(name: string, maxNameLen = 13) {
     programName = programName.replace(/\s+/g, '').substring(0, maxNameLen - 1);
   return [programName, instrument, sound];
 }
-
 
 function exit() { }
 
